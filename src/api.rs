@@ -21,7 +21,7 @@ impl Client {
         Ok(users)
     }
 
-    async fn get_channels_cached(&self) -> Result<Value> {
+    pub async fn get_channels_cached(&self) -> Result<Value> {
         let mut c = cache::load_cache();
         if let Some(channels) = cache::get_channels(&c) {
             return Ok(channels);
@@ -96,11 +96,37 @@ impl Client {
     }
 
     pub async fn list_channels(&self) -> Result<Value> {
-        self.get(
-            "conversations.list",
-            &[("types", "public_channel,private_channel")],
-        )
-        .await
+        let mut all_channels = Vec::new();
+        let mut cursor = String::new();
+
+        loop {
+            let mut params = vec![("types", "public_channel,private_channel")];
+            if !cursor.is_empty() {
+                params.push(("cursor", &cursor));
+            }
+
+            let resp = self.get("conversations.list", &params).await?;
+
+            if let Some(channels) = resp.get("channels").and_then(|c| c.as_array()) {
+                all_channels.extend(channels.clone());
+            }
+
+            cursor = resp
+                .get("response_metadata")
+                .and_then(|m| m.get("next_cursor"))
+                .and_then(|c| c.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            if cursor.is_empty() {
+                break;
+            }
+        }
+
+        Ok(serde_json::json!({
+            "ok": true,
+            "channels": all_channels
+        }))
     }
 
     pub async fn get_channel(&self, channel: &str) -> Result<Value> {
@@ -116,10 +142,13 @@ impl Client {
         .await
     }
 
-    pub async fn send_message(&self, channel: &str, text: &str) -> Result<Value> {
+    pub async fn send_message(&self, channel: &str, text: &str, thread_ts: Option<&str>) -> Result<Value> {
         let mut payload = HashMap::new();
         payload.insert("channel", channel);
         payload.insert("text", text);
+        if let Some(ts) = thread_ts {
+            payload.insert("thread_ts", ts);
+        }
         self.post("chat.postMessage", &payload).await
     }
 
@@ -257,7 +286,7 @@ mod tests {
             .await;
 
         let client = Client::with_base_url("test-token", &mock_server.uri()).unwrap();
-        let result = client.send_message("C123", "Hello!").await.unwrap();
+        let result = client.send_message("C123", "Hello!", None).await.unwrap();
 
         assert_eq!(result["ok"], true);
         assert_eq!(result["message"]["text"], "Hello!");

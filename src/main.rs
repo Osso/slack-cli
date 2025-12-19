@@ -42,6 +42,9 @@ enum Commands {
         target: String,
         /// Message text
         text: String,
+        /// Thread timestamp to reply to
+        #[arg(short, long)]
+        thread: Option<String>,
     },
     /// List DM conversations
     Dms,
@@ -76,7 +79,7 @@ async fn main() -> Result<()> {
         }
         Commands::Channels => {
             let client = get_client()?;
-            let result = client.list_channels().await?;
+            let result = client.get_channels_cached().await?;
             println!("{}", serde_json::to_string_pretty(&result)?);
         }
         Commands::Channel { id } => {
@@ -89,10 +92,10 @@ async fn main() -> Result<()> {
             let result = client.get_messages(&channel, limit).await?;
             println!("{}", serde_json::to_string_pretty(&result)?);
         }
-        Commands::Send { target, text } => {
+        Commands::Send { target, text, thread } => {
             let client = get_client()?;
             let resolved = client.resolve_target(&target).await?;
-            let result = client.send_message(&resolved, &text).await?;
+            let result = client.send_message(&resolved, &text, thread.as_deref()).await?;
             println!("{}", serde_json::to_string_pretty(&result)?);
         }
         Commands::Dms => {
