@@ -1,0 +1,30 @@
+{
+    "display_information": {
+        "name": "Slack CLI",
+        "description": "CLI tool for reading and sending Slack messages",
+        "background_color": "#4A154B"
+    },
+    "oauth_config": {
+        "scopes": {
+            "user": [
+                "channels:read",
+                "channels:history",
+                "groups:read",
+                "groups:history",
+                "im:read",
+                "im:history",
+                "chat:write",
+                "users:read",
+                "users:read.email",
+                "im:write",
+                "groups:write",
+                "search:read"
+            ]
+        }
+    },
+    "settings": {
+        "org_deploy_enabled": false,
+        "socket_mode_enabled": false,
+        "token_rotation_enabled": false
+    }
+}
