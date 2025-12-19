@@ -22,7 +22,11 @@ enum Commands {
         token: String,
     },
     /// List channels
-    Channels,
+    Channels {
+        /// Filter by channel name (case-insensitive substring match)
+        #[arg(short, long)]
+        filter: Option<String>,
+    },
     /// Get channel info
     Channel {
         /// Channel ID
@@ -77,10 +81,26 @@ async fn main() -> Result<()> {
             config::save_config(&cfg)?;
             eprintln!("Configuration saved");
         }
-        Commands::Channels => {
+        Commands::Channels { filter } => {
             let client = get_client()?;
             let result = client.get_channels_cached().await?;
-            println!("{}", serde_json::to_string_pretty(&result)?);
+            if let Some(filter) = filter {
+                let filter_lower = filter.to_lowercase();
+                if let Some(channels) = result.get("channels").and_then(|c| c.as_array()) {
+                    let filtered: Vec<_> = channels
+                        .iter()
+                        .filter(|ch| {
+                            ch.get("name")
+                                .and_then(|n| n.as_str())
+                                .map(|n| n.to_lowercase().contains(&filter_lower))
+                                .unwrap_or(false)
+                        })
+                        .collect();
+                    println!("{}", serde_json::to_string_pretty(&filtered)?);
+                }
+            } else {
+                println!("{}", serde_json::to_string_pretty(&result)?);
+            }
         }
         Commands::Channel { id } => {
             let client = get_client()?;
