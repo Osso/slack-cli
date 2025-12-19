@@ -64,6 +64,9 @@ enum Commands {
     Search {
         /// Search query
         query: String,
+        /// Limit search to channel (name or ID)
+        #[arg(short, long)]
+        channel: Option<String>,
     },
 }
 
@@ -159,9 +162,13 @@ async fn main() -> Result<()> {
             let result = client.list_users().await?;
             println!("{}", serde_json::to_string_pretty(&result)?);
         }
-        Commands::Search { query } => {
+        Commands::Search { query, channel } => {
             let client = get_client()?;
-            let result = client.search_messages(&query).await?;
+            let full_query = match channel {
+                Some(ch) => format!("{} in:#{}", query, ch.trim_start_matches('#')),
+                None => query,
+            };
+            let result = client.search_messages(&full_query).await?;
             println!("{}", serde_json::to_string_pretty(&result)?);
         }
     }
