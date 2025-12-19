@@ -39,6 +39,12 @@ enum Commands {
         /// Number of messages to fetch
         #[arg(short, long, default_value = "20")]
         limit: u32,
+        /// Filter by text pattern (case-insensitive)
+        #[arg(short, long)]
+        grep: Option<String>,
+        /// Filter by timestamp
+        #[arg(long)]
+        ts: Option<String>,
     },
     /// Send a message to a channel or user
     Send {
@@ -107,10 +113,35 @@ async fn main() -> Result<()> {
             let result = client.get_channel(&id).await?;
             println!("{}", serde_json::to_string_pretty(&result)?);
         }
-        Commands::Messages { channel, limit } => {
+        Commands::Messages { channel, limit, grep, ts } => {
             let client = get_client()?;
             let result = client.get_messages(&channel, limit).await?;
-            println!("{}", serde_json::to_string_pretty(&result)?);
+            if grep.is_some() || ts.is_some() {
+                if let Some(messages) = result.get("messages").and_then(|m| m.as_array()) {
+                    let filtered: Vec<_> = messages
+                        .iter()
+                        .filter(|msg| {
+                            let grep_match = grep.as_ref().map_or(true, |pattern| {
+                                let pattern_lower = pattern.to_lowercase();
+                                msg.get("text")
+                                    .and_then(|t| t.as_str())
+                                    .map(|t| t.to_lowercase().contains(&pattern_lower))
+                                    .unwrap_or(false)
+                            });
+                            let ts_match = ts.as_ref().map_or(true, |ts_val| {
+                                msg.get("ts")
+                                    .and_then(|t| t.as_str())
+                                    .map(|t| t == ts_val)
+                                    .unwrap_or(false)
+                            });
+                            grep_match && ts_match
+                        })
+                        .collect();
+                    println!("{}", serde_json::to_string_pretty(&filtered)?);
+                }
+            } else {
+                println!("{}", serde_json::to_string_pretty(&result)?);
+            }
         }
         Commands::Send { target, text, thread } => {
             let client = get_client()?;
