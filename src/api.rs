@@ -161,8 +161,9 @@ impl Client {
         self.get("users.list", &[]).await
     }
 
-    pub async fn search_messages(&self, query: &str) -> Result<Value> {
-        self.get("search.messages", &[("query", query)]).await
+    pub async fn search_messages(&self, query: &str, count: u32) -> Result<Value> {
+        let count_str = count.to_string();
+        self.get("search.messages", &[("query", query), ("count", &count_str)]).await
     }
 
     pub async fn resolve_target(&self, target: &str) -> Result<String> {
@@ -339,6 +340,7 @@ mod tests {
         Mock::given(method("GET"))
             .and(path("/search.messages"))
             .and(query_param("query", "hello world"))
+            .and(query_param("count", "30"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "ok": true,
                 "messages": {
@@ -349,7 +351,7 @@ mod tests {
             .await;
 
         let client = Client::with_base_url("test-token", &mock_server.uri()).unwrap();
-        let result = client.search_messages("hello world").await.unwrap();
+        let result = client.search_messages("hello world", 30).await.unwrap();
 
         assert_eq!(result["ok"], true);
     }
