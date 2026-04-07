@@ -142,7 +142,24 @@ impl Client {
         .await
     }
 
-    pub async fn send_message(&self, channel: &str, text: &str, thread_ts: Option<&str>) -> Result<Value> {
+    pub async fn get_thread(&self, channel: &str, ts: &str, limit: u32) -> Result<Value> {
+        self.get(
+            "conversations.replies",
+            &[
+                ("channel", channel),
+                ("ts", ts),
+                ("limit", &limit.to_string()),
+            ],
+        )
+        .await
+    }
+
+    pub async fn send_message(
+        &self,
+        channel: &str,
+        text: &str,
+        thread_ts: Option<&str>,
+    ) -> Result<Value> {
         let mut payload = HashMap::new();
         payload.insert("channel", channel);
         payload.insert("text", text);
@@ -163,7 +180,11 @@ impl Client {
 
     pub async fn search_messages(&self, query: &str, count: u32) -> Result<Value> {
         let count_str = count.to_string();
-        self.get("search.messages", &[("query", query), ("count", &count_str)]).await
+        self.get(
+            "search.messages",
+            &[("query", query), ("count", &count_str)],
+        )
+        .await
     }
 
     pub async fn resolve_target(&self, target: &str) -> Result<String> {
