@@ -204,14 +204,18 @@ impl Client {
     }
 
     fn find_channel_id<'a>(channels: &'a Value, name: &str) -> Option<&'a str> {
-        channels.get("channels")?.as_array()?.iter().find_map(|chan| {
-            let chan_name = chan.get("name").and_then(|n| n.as_str()).unwrap_or("");
-            if chan_name.eq_ignore_ascii_case(name) {
-                chan.get("id").and_then(|i| i.as_str())
-            } else {
-                None
-            }
-        })
+        channels
+            .get("channels")?
+            .as_array()?
+            .iter()
+            .find_map(|chan| {
+                let chan_name = chan.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                if chan_name.eq_ignore_ascii_case(name) {
+                    chan.get("id").and_then(|i| i.as_str())
+                } else {
+                    None
+                }
+            })
     }
 
     pub async fn resolve_target(&self, target: &str) -> Result<String> {
