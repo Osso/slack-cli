@@ -53,36 +53,35 @@ pub fn save_cache(cache: &Cache) -> Result<()> {
     Ok(())
 }
 
-pub fn get_users(cache: &Cache) -> Option<Value> {
-    cache.users.as_ref().and_then(|c| {
+fn get_cached(entry: &Option<CachedData>) -> Option<Value> {
+    entry.as_ref().and_then(|c| {
         if now() - c.timestamp < CACHE_TTL_SECS {
             Some(c.data.clone())
         } else {
             None
         }
     })
+}
+
+fn set_cached(entry: &mut Option<CachedData>, data: Value) {
+    *entry = Some(CachedData {
+        data,
+        timestamp: now(),
+    });
+}
+
+pub fn get_users(cache: &Cache) -> Option<Value> {
+    get_cached(&cache.users)
 }
 
 pub fn set_users(cache: &mut Cache, data: Value) {
-    cache.users = Some(CachedData {
-        data,
-        timestamp: now(),
-    });
+    set_cached(&mut cache.users, data);
 }
 
 pub fn get_channels(cache: &Cache) -> Option<Value> {
-    cache.channels.as_ref().and_then(|c| {
-        if now() - c.timestamp < CACHE_TTL_SECS {
-            Some(c.data.clone())
-        } else {
-            None
-        }
-    })
+    get_cached(&cache.channels)
 }
 
 pub fn set_channels(cache: &mut Cache, data: Value) {
-    cache.channels = Some(CachedData {
-        data,
-        timestamp: now(),
-    });
+    set_cached(&mut cache.channels, data);
 }

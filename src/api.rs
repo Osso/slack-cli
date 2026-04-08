@@ -187,8 +187,34 @@ impl Client {
         .await
     }
 
+    fn find_member_id<'a>(users: &'a Value, name: &str) -> Option<&'a str> {
+        users.get("members")?.as_array()?.iter().find_map(|member| {
+            let username = member.get("name").and_then(|n| n.as_str()).unwrap_or("");
+            let display_name = member
+                .get("profile")
+                .and_then(|p| p.get("display_name"))
+                .and_then(|d| d.as_str())
+                .unwrap_or("");
+            if username.eq_ignore_ascii_case(name) || display_name.eq_ignore_ascii_case(name) {
+                member.get("id").and_then(|i| i.as_str())
+            } else {
+                None
+            }
+        })
+    }
+
+    fn find_channel_id<'a>(channels: &'a Value, name: &str) -> Option<&'a str> {
+        channels.get("channels")?.as_array()?.iter().find_map(|chan| {
+            let chan_name = chan.get("name").and_then(|n| n.as_str()).unwrap_or("");
+            if chan_name.eq_ignore_ascii_case(name) {
+                chan.get("id").and_then(|i| i.as_str())
+            } else {
+                None
+            }
+        })
+    }
+
     pub async fn resolve_target(&self, target: &str) -> Result<String> {
-        // Already an ID (starts with U, C, D, G)
         if target.starts_with('U')
             || target.starts_with('C')
             || target.starts_with('D')
@@ -197,39 +223,16 @@ impl Client {
             return Ok(target.to_string());
         }
 
-        // Strip @ or # prefix
         let name = target.trim_start_matches('@').trim_start_matches('#');
 
-        // Try to find as username
         let users = self.get_users_cached().await?;
-        if let Some(members) = users.get("members").and_then(|m| m.as_array()) {
-            for member in members {
-                let username = member.get("name").and_then(|n| n.as_str()).unwrap_or("");
-                let display_name = member
-                    .get("profile")
-                    .and_then(|p| p.get("display_name"))
-                    .and_then(|d| d.as_str())
-                    .unwrap_or("");
-
-                if username.eq_ignore_ascii_case(name) || display_name.eq_ignore_ascii_case(name) {
-                    if let Some(id) = member.get("id").and_then(|i| i.as_str()) {
-                        return Ok(id.to_string());
-                    }
-                }
-            }
+        if let Some(id) = Self::find_member_id(&users, name) {
+            return Ok(id.to_string());
         }
 
-        // Try to find as channel name
         let channels = self.get_channels_cached().await?;
-        if let Some(chans) = channels.get("channels").and_then(|c| c.as_array()) {
-            for chan in chans {
-                let chan_name = chan.get("name").and_then(|n| n.as_str()).unwrap_or("");
-                if chan_name.eq_ignore_ascii_case(name) {
-                    if let Some(id) = chan.get("id").and_then(|i| i.as_str()) {
-                        return Ok(id.to_string());
-                    }
-                }
-            }
+        if let Some(id) = Self::find_channel_id(&channels, name) {
+            return Ok(id.to_string());
         }
 
         anyhow::bail!("Could not resolve '{}' to a user or channel", target)
